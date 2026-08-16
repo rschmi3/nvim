@@ -18,7 +18,9 @@ local terminal_opts = {
 vim.g.opencode_opts = {
 	auto_reload = true,
 	events = {
-		reload = true,
+		reload = {
+			enabled = true,
+		},
 	},
 	lsp = {
 		enabled = false,
