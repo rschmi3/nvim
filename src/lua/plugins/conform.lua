@@ -33,6 +33,7 @@ conform.setup({
 		sql = { "pg_format" },
 		toml = { "tombi" },
 		typescript = { "prettier" },
+		xml = { "xmlformat" },
 	},
 	format_on_save = {
 		lsp_format = "fallback",
