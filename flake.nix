@@ -2,11 +2,17 @@
   description = "Personal Neovim configs";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
     # Neovim nightly overlay
     neovim-nightly-overlay = {
       url = "github:nix-community/neovim-nightly-overlay";
+    };
+
+    # Track upstream main for OpenCode v2 support.
+    opencode-nvim = {
+      url = "github:nickjvandyke/opencode.nvim";
+      flake = false;
     };
   };
 
@@ -15,6 +21,7 @@
       self,
       nixpkgs,
       neovim-nightly-overlay,
+      opencode-nvim,
     }:
     let
       systems = [
@@ -57,6 +64,12 @@
             p.yaml
           ]);
 
+          opencodeNvim = pkgs.vimUtils.buildVimPlugin {
+            pname = "opencode.nvim";
+            version = "main";
+            src = opencode-nvim;
+          };
+
           universalPlugins =
             with pkgs.vimPlugins;
             [
@@ -69,7 +82,6 @@
               lualine-nvim
               mini-icons
               oil-nvim
-              opencode-nvim
               render-markdown-nvim
               snacks-nvim
               telescope-fzf-native-nvim
@@ -79,7 +91,7 @@
               undotree
               which-key-nvim
             ]
-            ++ [ treesitter ];
+            ++ [ treesitter opencodeNvim ];
 
           universalTools = with pkgs; [
             fd
@@ -114,6 +126,7 @@
             rustfmt
             stylua
             tombi
+            xmlformat
           ];
 
           neovimConfig = pkgs.stdenv.mkDerivation {
@@ -168,6 +181,26 @@
                     '+lua require("gitsigns")' \
                     '+lua require("opencode")' \
                     '+quitall'
+                  touch $out
+                '';
+
+                opencode-integration = pkgs.runCommand "nvim-opencode-integration-check" { } ''
+                  export HOME="$TMPDIR/home"
+                  export OPENCODE_TEST_LOG="$TMPDIR/opencode-processes.log"
+                  mkdir -p "$HOME" "$TMPDIR/fake-bin"
+
+                  cat > "$TMPDIR/fake-bin/opencode" <<'EOF'
+                  #!${pkgs.runtimeShell}
+                  printf '%s\\n' "$$" >> "$OPENCODE_TEST_LOG"
+                  trap 'exit 0' TERM INT HUP
+                  while :; do
+                    ${pkgs.coreutils}/bin/sleep 1
+                  done
+                  EOF
+                  chmod +x "$TMPDIR/fake-bin/opencode"
+
+                  PATH="$TMPDIR/fake-bin:$PATH" ${full}/bin/nvim --headless \
+                    -c "lua dofile('${./tests/opencode.lua}')"
                   touch $out
                 '';
 
